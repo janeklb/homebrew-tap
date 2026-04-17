@@ -13,6 +13,8 @@ class GitStack < Formula
       "-s",
       "-w",
       "-X github.com/janeklb/git-stack/internal/app.buildVersion=#{version}",
+      "-X github.com/janeklb/git-stack/internal/app.buildCommit=9db79b657860817bd4017781ce52e61e1e2ab269",
+      "-X github.com/janeklb/git-stack/internal/app.buildDate=2026-04-17T18:25:24Z",
     ]
 
     system "go", "build", *std_go_args(ldflags:), "./cmd/git-stack"

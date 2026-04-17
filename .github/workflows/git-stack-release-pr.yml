@@ -1,0 +1,113 @@
+name: Git-stack Release PR
+
+on:
+  issues:
+    types: [opened, reopened, edited]
+  workflow_dispatch:
+    inputs:
+      issue-number:
+        description: "Release handoff issue number in janeklb/homebrew-tap"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  open-release-pr:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.issue.title, '[git-stack] Release ')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare formula update from release handoff
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          DISPATCH_ISSUE_NUMBER: ${{ inputs['issue-number'] }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          issue_number="$ISSUE_NUMBER"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            issue_number="$DISPATCH_ISSUE_NUMBER"
+          fi
+
+          scripts/prepare-git-stack-release-pr.sh "$issue_number"
+
+      - name: Stop when issue does not match release handoff format
+        if: steps.prepare.outputs.skip == 'true'
+        run: exit 0
+
+      - name: Stop when formula is already current
+        if: steps.prepare.outputs.changed != 'true'
+        run: exit 0
+
+      - name: Configure git author
+        if: steps.prepare.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit formula update on release branch
+        if: steps.prepare.outputs.changed == 'true'
+        run: |
+          git switch -C "${{ steps.prepare.outputs.branch_name }}"
+          git add Formula/git-stack.rb
+          git commit -m "Update git-stack to ${{ steps.prepare.outputs.tag }}"
+
+      - name: Push release branch
+        if: steps.prepare.outputs.changed == 'true'
+        run: git push --force-with-lease origin "${{ steps.prepare.outputs.branch_name }}"
+
+      - name: Create or reuse pull request
+        if: steps.prepare.outputs.changed == 'true'
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing_pr="$(gh pr list --head "${{ steps.prepare.outputs.branch_name }}" --state all --json url --jq '.[0].url // ""')"
+
+          if [ -n "$existing_pr" ]; then
+            printf 'pr_url=%s\n' "$existing_pr" >> "$GITHUB_OUTPUT"
+            printf 'new_pr=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          cat > pr-body.md <<'EOF'
+          ## Summary
+          - update `Formula/git-stack.rb` to `${{ steps.prepare.outputs.tag }}` from the immutable tagged source archive
+          - embed the release tag commit and tag date in the built binary version output
+          - generated from release handoff issue #${{ steps.prepare.outputs.issue_number }}
+
+          ## Release Metadata
+          - Issue: ${{ steps.prepare.outputs.issue_url }}
+          - Source URL: `${{ steps.prepare.outputs.source_url }}`
+          - SHA256: `${{ steps.prepare.outputs.sha256 }}`
+          - Build commit: `${{ steps.prepare.outputs.build_commit }}`
+          - Build date: `${{ steps.prepare.outputs.build_date }}`
+          EOF
+
+          pr_url="$(gh pr create \
+            --base main \
+            --head "${{ steps.prepare.outputs.branch_name }}" \
+            --title "${{ steps.prepare.outputs.pr_title }}" \
+            --body-file pr-body.md)"
+
+          printf 'pr_url=%s\n' "$pr_url" >> "$GITHUB_OUTPUT"
+          printf 'new_pr=true\n' >> "$GITHUB_OUTPUT"
+
+      - name: Comment on handoff issue with PR link
+        if: steps.prepare.outputs.changed == 'true' && steps.pr.outputs.new_pr == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ steps.prepare.outputs.issue_number }}" --body "Opened tap update PR: ${{ steps.pr.outputs.pr_url }}"
