@@ -11,7 +11,7 @@ issue_number="$1"
 tap_repo="${TAP_REPO:-${GITHUB_REPOSITORY:-janeklb/homebrew-tap}}"
 upstream_repo="${UPSTREAM_REPO:-janeklb/git-stack}"
 formula_path="${FORMULA_PATH:-Formula/git-stack.rb}"
-formula_template_path="${FORMULA_TEMPLATE_PATH:-Formula/git-stack.rb.tmpl}"
+formula_template_path="${FORMULA_TEMPLATE_PATH:-Formula/git-stack.rb.erb}"
 output_path="${GITHUB_OUTPUT:-/dev/null}"
 
 if [ ! -f "$formula_template_path" ]; then

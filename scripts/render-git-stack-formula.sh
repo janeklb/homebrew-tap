@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-if [ "$#" -lt 4 ] || [ "$#" -gt 6 ]; then
-  printf 'usage: %s <source-url> <sha256> <build-commit> <build-date> [output-path] [template-path]\n' "$0" >&2
+if [ "$#" -ne 6 ]; then
+  printf 'usage: %s <source-url> <sha256> <build-commit> <build-date> <output-path> <template-path>\n' "$0" >&2
   exit 1
 fi
 
@@ -11,8 +11,8 @@ source_url="$1"
 sha256="$2"
 build_commit="$3"
 build_date="$4"
-output_path="${5:-Formula/git-stack.rb}"
-template_path="${6:-Formula/git-stack.rb.tmpl}"
+output_path="$5"
+template_path="$6"
 
 if [ ! -f "$template_path" ]; then
   printf 'formula template not found: %s\n' "$template_path" >&2
