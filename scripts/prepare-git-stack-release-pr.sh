@@ -19,54 +19,8 @@ if [ ! -f "$formula_template_path" ]; then
   exit 1
 fi
 
-extract_issue_field() {
-  local label="$1"
-  printf '%s\n' "$issue_body" | awk -v prefix="- ${label}: " '
-    index($0, prefix) == 1 {
-      value = substr($0, length(prefix) + 1)
-      gsub(/`/, "", value)
-      print value
-      exit
-    }
-  '
-}
-
-resolve_tag_commit_and_date() {
-  local tag="$1"
-  local ref_json object_type object_sha
-
-  ref_json="$(gh api "repos/${upstream_repo}/git/ref/tags/${tag}")"
-  object_type="$(jq -r '.object.type' <<<"$ref_json")"
-  object_sha="$(jq -r '.object.sha' <<<"$ref_json")"
-
-  case "$object_type" in
-    tag)
-      local tag_json
-      tag_json="$(gh api "repos/${upstream_repo}/git/tags/${object_sha}")"
-      build_commit="$(jq -r '.object.sha' <<<"$tag_json")"
-      build_date="$(jq -r '.tagger.date' <<<"$tag_json")"
-      ;;
-    commit)
-      local commit_json
-      build_commit="$object_sha"
-      commit_json="$(gh api "repos/${upstream_repo}/git/commits/${object_sha}")"
-      build_date="$(jq -r '.committer.date // .author.date' <<<"$commit_json")"
-      ;;
-    *)
-      printf 'unsupported tag object type for %s: %s\n' "$tag" "$object_type" >&2
-      exit 1
-      ;;
-  esac
-
-  if [ -z "$build_commit" ] || [ "$build_commit" = "null" ] || [ -z "$build_date" ] || [ "$build_date" = "null" ]; then
-    printf 'failed to resolve build metadata for %s\n' "$tag" >&2
-    exit 1
-  fi
-}
-
 issue_json="$(gh issue view "$issue_number" --repo "$tap_repo" --json number,title,body,url)"
 issue_title="$(jq -r '.title' <<<"$issue_json")"
-issue_body="$(jq -r '.body' <<<"$issue_json")"
 issue_url="$(jq -r '.url' <<<"$issue_json")"
 
 if [[ ! "$issue_title" =~ ^\[git-stack\]\ Release\ (v[^[:space:]]+)$ ]]; then
@@ -86,20 +40,20 @@ cleanup() {
 
 trap cleanup EXIT
 
-if gh release download "$tag" --repo "$upstream_repo" --pattern homebrew-release.json --dir "$tmpdir" >/dev/null 2>&1; then
-  source_url="$(jq -r '.source_url' "$metadata_path")"
-  sha256="$(jq -r '.sha256' "$metadata_path")"
-else
-  source_url="$(extract_issue_field 'Source URL')"
-  sha256="$(extract_issue_field 'SHA256')"
-fi
+gh release download "$tag" --repo "$upstream_repo" --pattern homebrew-release.json --dir "$tmpdir" >/dev/null
 
-if [ -z "$source_url" ] || [ -z "$sha256" ]; then
-  printf 'missing source metadata for %s\n' "$tag" >&2
+source_url="$(jq -r '.source_url' "$metadata_path")"
+sha256="$(jq -r '.sha256' "$metadata_path")"
+build_commit="$(jq -r '.build_commit' "$metadata_path")"
+build_date="$(jq -r '.build_date' "$metadata_path")"
+
+if [ -z "$source_url" ] || [ "$source_url" = "null" ] || \
+   [ -z "$sha256" ] || [ "$sha256" = "null" ] || \
+   [ -z "$build_commit" ] || [ "$build_commit" = "null" ] || \
+   [ -z "$build_date" ] || [ "$build_date" = "null" ]; then
+  printf 'missing release metadata in %s for %s\n' "$metadata_path" "$tag" >&2
   exit 1
 fi
-
-resolve_tag_commit_and_date "$tag"
 
 scripts/render-git-stack-formula.sh \
   "$source_url" \
