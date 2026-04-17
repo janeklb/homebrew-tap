@@ -11,10 +11,11 @@ issue_number="$1"
 tap_repo="${TAP_REPO:-${GITHUB_REPOSITORY:-janeklb/homebrew-tap}}"
 upstream_repo="${UPSTREAM_REPO:-janeklb/git-stack}"
 formula_path="${FORMULA_PATH:-Formula/git-stack.rb}"
+formula_template_path="${FORMULA_TEMPLATE_PATH:-Formula/git-stack.rb.tmpl}"
 output_path="${GITHUB_OUTPUT:-/dev/null}"
 
-if [ ! -f "$formula_path" ]; then
-  printf 'formula not found: %s\n' "$formula_path" >&2
+if [ ! -f "$formula_template_path" ]; then
+  printf 'formula template not found: %s\n' "$formula_template_path" >&2
   exit 1
 fi
 
@@ -100,39 +101,13 @@ fi
 
 resolve_tag_commit_and_date "$tag"
 
-export FORMULA_PATH="$formula_path"
-export RELEASE_SOURCE_URL="$source_url"
-export RELEASE_SHA256="$sha256"
-export RELEASE_BUILD_COMMIT="$build_commit"
-export RELEASE_BUILD_DATE="$build_date"
-
-ruby <<'RUBY'
-formula_path = ENV.fetch("FORMULA_PATH")
-source_url = ENV.fetch("RELEASE_SOURCE_URL")
-sha256 = ENV.fetch("RELEASE_SHA256")
-build_commit = ENV.fetch("RELEASE_BUILD_COMMIT")
-build_date = ENV.fetch("RELEASE_BUILD_DATE")
-
-contents = File.read(formula_path)
-
-replacements = {
-  /^  url ".*"$/ => %(  url "#{source_url}"),
-  /^  sha256 ".*"$/ => %(  sha256 "#{sha256}"),
-  /^      "-X github\.com\/janeklb\/git-stack\/internal\/app\.buildCommit=.*",$/ => %(      "-X github.com/janeklb/git-stack/internal/app.buildCommit=#{build_commit}",),
-  /^      "-X github\.com\/janeklb\/git-stack\/internal\/app\.buildDate=.*",$/ => %(      "-X github.com/janeklb/git-stack/internal/app.buildDate=#{build_date}",),
-}
-
-replacements.each do |pattern, replacement|
-  unless contents.match?(pattern)
-    warn("missing expected formula pattern: #{pattern}")
-    exit 1
-  end
-
-  contents.sub!(pattern, replacement)
-end
-
-File.write(formula_path, contents)
-RUBY
+scripts/render-git-stack-formula.sh \
+  "$source_url" \
+  "$sha256" \
+  "$build_commit" \
+  "$build_date" \
+  "$formula_path" \
+  "$formula_template_path"
 
 branch_name="git-stack-release-${tag}"
 pr_title="Update git-stack to ${tag}"
