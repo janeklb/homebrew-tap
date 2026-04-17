@@ -1,3 +1,7 @@
 # janeklb/homebrew-tap
 
-Homebrew tap repository
+Homebrew tap repository.
+
+## Available Formulae
+
+- `git-stack`
