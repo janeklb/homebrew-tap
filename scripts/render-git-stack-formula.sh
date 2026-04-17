@@ -19,23 +19,10 @@ if [ ! -f "$template_path" ]; then
   exit 1
 fi
 
-export RELEASE_SOURCE_URL="$source_url"
-export RELEASE_SHA256="$sha256"
-export RELEASE_BUILD_COMMIT="$build_commit"
-export RELEASE_BUILD_DATE="$build_date"
-export FORMULA_TEMPLATE_PATH="$template_path"
-export FORMULA_OUTPUT_PATH="$output_path"
-
-ruby <<'RUBY'
+ruby - "$template_path" "$output_path" "$source_url" "$sha256" "$build_commit" "$build_date" <<'RUBY'
 require "erb"
 
-template_path = ENV.fetch("FORMULA_TEMPLATE_PATH")
-output_path = ENV.fetch("FORMULA_OUTPUT_PATH")
-
-release_source_url = ENV.fetch("RELEASE_SOURCE_URL")
-release_sha256 = ENV.fetch("RELEASE_SHA256")
-release_build_commit = ENV.fetch("RELEASE_BUILD_COMMIT")
-release_build_date = ENV.fetch("RELEASE_BUILD_DATE")
+template_path, output_path, release_source_url, release_sha256, release_build_commit, release_build_date = ARGV
 
 template = File.read(template_path)
 rendered = ERB.new(template, trim_mode: "-").result(binding)

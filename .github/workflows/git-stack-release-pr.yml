@@ -55,7 +55,7 @@ jobs:
         if: steps.prepare.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Commit formula update on release branch
         if: steps.prepare.outputs.changed == 'true'
