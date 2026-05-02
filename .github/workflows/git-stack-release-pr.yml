@@ -1,25 +1,19 @@
 name: Git-stack Release PR
 
 on:
-  issues:
-    types: [opened, reopened, edited]
   workflow_dispatch:
     inputs:
-      issue-number:
-        description: "Release handoff issue number in janeklb/homebrew-tap"
+      tag:
+        description: "Published git-stack tag"
         required: true
         type: string
 
 permissions:
   contents: write
-  issues: write
   pull-requests: write
 
 jobs:
   open-release-pr:
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.issue.title, '[git-stack] Release ')
     runs-on: ubuntu-latest
 
     steps:
@@ -28,24 +22,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Prepare formula update from release handoff
+      - name: Prepare formula update from upstream release
         id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          DISPATCH_ISSUE_NUMBER: ${{ inputs['issue-number'] }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          issue_number="$ISSUE_NUMBER"
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            issue_number="$DISPATCH_ISSUE_NUMBER"
-          fi
-
-          scripts/prepare-git-stack-release-pr.sh "$issue_number"
-
-      - name: Stop when issue does not match release handoff format
-        if: steps.prepare.outputs.skip == 'true'
-        run: exit 0
+        run: scripts/prepare-git-stack-release-pr.sh "${{ inputs.tag }}"
 
       - name: Stop when formula is already current
         if: steps.prepare.outputs.changed != 'true'
@@ -86,10 +67,10 @@ jobs:
           ## Summary
           - update `Formula/git-stack.rb` to `${{ steps.prepare.outputs.tag }}` from the immutable tagged source archive
           - embed the release tag commit and tag date in the built binary version output
-          - generated from release handoff issue #${{ steps.prepare.outputs.issue_number }}
+          - generated from upstream release `${{ steps.prepare.outputs.release_url }}`
 
           ## Release Metadata
-          - Issue: ${{ steps.prepare.outputs.issue_url }}
+          - Release: ${{ steps.prepare.outputs.release_url }}
           - Source URL: `${{ steps.prepare.outputs.source_url }}`
           - SHA256: `${{ steps.prepare.outputs.sha256 }}`
           - Build commit: `${{ steps.prepare.outputs.build_commit }}`
@@ -104,10 +85,3 @@ jobs:
 
           printf 'pr_url=%s\n' "$pr_url" >> "$GITHUB_OUTPUT"
           printf 'new_pr=true\n' >> "$GITHUB_OUTPUT"
-
-      - name: Comment on handoff issue with PR link
-        if: steps.prepare.outputs.changed == 'true' && steps.pr.outputs.new_pr == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh issue comment "${{ steps.prepare.outputs.issue_number }}" --body "Opened tap update PR: ${{ steps.pr.outputs.pr_url }}"

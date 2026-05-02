@@ -3,33 +3,27 @@
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
-  printf 'usage: %s <issue-number>\n' "$0" >&2
+  printf 'usage: %s <tag>\n' "$0" >&2
   exit 1
 fi
 
-issue_number="$1"
-tap_repo="${TAP_REPO:-${GITHUB_REPOSITORY:-janeklb/homebrew-tap}}"
+tag="$1"
 upstream_repo="${UPSTREAM_REPO:-janeklb/git-stack}"
 formula_path="${FORMULA_PATH:-Formula/git-stack.rb}"
 formula_template_path="${FORMULA_TEMPLATE_PATH:-Formula/git-stack.rb.erb}"
 output_path="${GITHUB_OUTPUT:-/dev/null}"
+release_url="https://github.com/${upstream_repo}/releases/tag/${tag}"
 
 if [ ! -f "$formula_template_path" ]; then
   printf 'formula template not found: %s\n' "$formula_template_path" >&2
   exit 1
 fi
 
-issue_json="$(gh issue view "$issue_number" --repo "$tap_repo" --json number,title,body,url)"
-issue_title="$(jq -r '.title' <<<"$issue_json")"
-issue_url="$(jq -r '.url' <<<"$issue_json")"
-
-if [[ ! "$issue_title" =~ ^\[git-stack\]\ Release\ (v[^[:space:]]+)$ ]]; then
-  printf 'skip=true\n' >> "$output_path"
-  printf 'issue %s does not look like a git-stack release handoff\n' "$issue_number"
-  exit 0
+if [[ ! "$tag" =~ ^v[^[:space:]]+$ ]]; then
+  printf 'invalid tag: %s\n' "$tag" >&2
+  exit 1
 fi
 
-tag="${BASH_REMATCH[1]}"
 version="${tag#v}"
 tmpdir="$(mktemp -d)"
 metadata_path="${tmpdir}/homebrew-release.json"
@@ -66,11 +60,9 @@ scripts/render-git-stack-formula.sh \
 branch_name="git-stack-release-${tag}"
 pr_title="Update git-stack to ${tag}"
 
-printf 'skip=false\n' >> "$output_path"
-printf 'issue_number=%s\n' "$issue_number" >> "$output_path"
-printf 'issue_url=%s\n' "$issue_url" >> "$output_path"
 printf 'tag=%s\n' "$tag" >> "$output_path"
 printf 'version=%s\n' "$version" >> "$output_path"
+printf 'release_url=%s\n' "$release_url" >> "$output_path"
 printf 'source_url=%s\n' "$source_url" >> "$output_path"
 printf 'sha256=%s\n' "$sha256" >> "$output_path"
 printf 'build_commit=%s\n' "$build_commit" >> "$output_path"
