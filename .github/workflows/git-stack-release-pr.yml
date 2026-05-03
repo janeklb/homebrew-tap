@@ -58,8 +58,8 @@ jobs:
           existing_pr="$(gh pr list --head "${{ steps.prepare.outputs.branch_name }}" --state all --json url --jq '.[0].url // ""')"
 
           if [ -n "$existing_pr" ]; then
-            printf 'pr_url=%s\n' "$existing_pr" >> "$GITHUB_OUTPUT"
-            printf 'new_pr=false\n' >> "$GITHUB_OUTPUT"
+            echo "pr_url=${existing_pr}" >> "$GITHUB_OUTPUT"
+            echo "new_pr=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -83,5 +83,5 @@ jobs:
             --title "${{ steps.prepare.outputs.pr_title }}" \
             --body-file pr-body.md)"
 
-          printf 'pr_url=%s\n' "$pr_url" >> "$GITHUB_OUTPUT"
-          printf 'new_pr=true\n' >> "$GITHUB_OUTPUT"
+          echo "pr_url=${pr_url}" >> "$GITHUB_OUTPUT"
+          echo "new_pr=true" >> "$GITHUB_OUTPUT"
