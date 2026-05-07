@@ -1,8 +1,8 @@
 class GitStack < Formula
   desc "Manage personal stacked PR branches"
   homepage "https://github.com/janeklb/git-stack"
-  url "https://github.com/janeklb/git-stack/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "55be154f6d7967b87b0d7a0fb721cd44f5836d29d5d8b66ca7541e30f7f059cc"
+  url "https://github.com/janeklb/git-stack/archive/refs/tags/v0.2.1.tar.gz"
+  sha256 "a889c5d53ffd7ab47792e476eb00cc96819558ffe6b2f38413e68eea8e2538f3"
   license "MIT"
   head "https://github.com/janeklb/git-stack.git", branch: "main"
 
@@ -13,8 +13,8 @@ class GitStack < Formula
       "-s",
       "-w",
       "-X github.com/janeklb/git-stack/internal/app.buildVersion=#{version}",
-      "-X github.com/janeklb/git-stack/internal/app.buildCommit=d426bece1816e57b2c21c6e33728dd7d6c848dd6",
-      "-X github.com/janeklb/git-stack/internal/app.buildDate=2026-05-02T18:46:08Z",
+      "-X github.com/janeklb/git-stack/internal/app.buildCommit=5d55991b44821d2593bb29eda142089bfaa0310c",
+      "-X github.com/janeklb/git-stack/internal/app.buildDate=2026-05-07T14:10:42Z",
     ]
 
     system "go", "build", *std_go_args(ldflags:), "./cmd/git-stack"
